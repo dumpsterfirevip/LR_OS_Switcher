@@ -14,3 +14,4 @@ By making a few database entry changes you can point the Mac OSX folder location
 
 So underneath lightroom is a database and that database is SQLite which makes sense since lightroom is multi-operating system and so is SQLite. SQLite is a self contained database in a single file.
 
+Read the How_to text for detailed instructions.
