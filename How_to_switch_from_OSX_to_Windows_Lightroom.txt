@@ -1,0 +1,254 @@
+
+ ___     _______        _______ _______        _______          __ __        __               
+|   |   |   _   \      |   _   |   _   |      |   _   .--.--.--|__|  |_.----|  |--.-----.----.
+|.  |   |.  l   /      |.  |   |   1___|      |   1___|  |  |  |  |   _|  __|     |  -__|   _|
+|.  |___|.  _   1______|.  |   |____   |______|____   |________|__|____|____|__|__|_____|__|  
+|:  1   |:  |   |______|:  1   |:  1   |______|:  1   |                                       
+|::.. . |::.|:. |      |::.. . |::.. . |      |::.. . |                                       
+`-------`--- ---'      `-------`-------'      `-------'                                       
+                                               
+
+
+Converting from Mac to Windows file system for Adobe Lightroom. 
+
+So Lightroom is a pretty nifty tool but when you want to switch operating systems it falls a bit short. 
+
+Officially I think it says you need to export collections from one OS then reimport them in another OS or something like that but.... 
+There's a much much easier way to do switch OS's. By making a few database entry changes you can point the Mac OSX folder location to a windows one and avoid a bunch of work, error and time. 
+
+So underneath lightroom is a database and that database is SQLite which makes sense since lightroom is multi-operating system and so is SQLite. SQLite is a self contained database in a single file.
+
+
+A good tool for working with SQLite db's is DbBrowser available here: https://sqlitebrowser.org
+
+This tool is available for windows, mac and linux.
+
+Here is more info on the SQL commands that SQLite supports:
+https://www.sqlite.org/lang.html
+
+
+*********ONLY CHANGE YOUR CATALOG AFTER YOU HAVE MADE A BACKUP***************
+These files have an extension of .lrcat
+
+Repeat after me, "I solomley swear to only change a lightroom catalog that I have made a backup for"
+
+
+Tables with data to be changed:
+
+
+Adobe_variablesTable Table 
+--Adobe_lastScannedCatalogPath
+--AgLibrary_volumeInfo
+--AgLibrary_expandedFolders
+--AgImportDialog_importDestinationFolderPath
+--AgImportFromCatalog_destRoot
+--AgImportFromCatalog_missing_copyToPath
+
+AgLibraryRootFolder Table
+--absolutePath
+
+Lets start with AgLibraryRootFolder table. Data in the absolutePath field looks like this
+***** MAC OSX format:
+/Volumes/totes_not_virus/photos/literoll/
+
+***** Windows Format:
+H:/photos/literoll/ 
+
+In my case I moved the photos from an external drive hooked up to a mac to windows. (speed of windows & graphics card + memory).
+
+Each of the entries for absolutePath in table AgLibraryRootFolder needs to be updated to the new location. 
+
+I assigned the drive H: on my main machine and then ran a SQL command like this:
+Update AgLibraryRootFolder
+set absolutePath = replace(absolutePath, '/Volumes/totes_not_virus','H:');
+
+That makes it so when lightroom loads this database up it now knows where to find what it expects.  Even though you are now on a completely different operating system.
+
+
+Now you have to repeat this process with the Adobe_variablesTable Table. 
+The fields you want to change are:
+--Adobe_lastScannedCatalogPath
+
+--AgLibrary_volumeInfo (we'll save this one for last).
+
+--AgLibrary_expandedFolders
+--AgImportDialog_importDestinationFolderPath
+--AgImportFromCatalog_destRoot
+--AgImportFromCatalog_missing_copyToPath
+
+The big difference with this table is that it DOES care about windows vs osx slashes.  \ versus /. 
+
+Each of the commands will look something like this: 
+Update Adobe_variablesTable
+set value = replace(value, '/Volumes/totes_not_virus','H:')
+where name in( Adobe_lastScannedCatalogPath, AgLibrary_expandedFolders,AgImportDialog_importDestinationFolderPath, AgImportFromCatalog_destRoot, AgImportFromCatalog_missing_copyToPath );
+
+Now update the forward slashes to back slashes..
+Update Adobe_variablesTable
+set value = replace(value, '/','\')
+where name in( Adobe_lastScannedCatalogPath, AgLibrary_expandedFolders,AgImportDialog_importDestinationFolderPath, AgImportFromCatalog_destRoot, AgImportFromCatalog_missing_copyToPath );
+
+
+Now we are just left with one field we need to update before opening it in windows:
+AgLibrary_volumeInfo
+
+This is a bit trickier since it's format is a bit different.
+Valid OSX:
+volumeInfo = {
+	["/Volumes/totes_not_virus"] = {
+		expanded = true,
+		freeSpace = 63789785088,
+		name = "totes_not_virus",
+		offline = false,
+		size = 2000397881344,
+	},
+}
+
+Valid Windows:
+volumeInfo = {
+	["H:\\"] = {
+		freeSpace = 64858681344,
+		name = "PotatoOle (H:)",
+		offline = false,
+		size = 4000750497792,
+	},
+}
+
+Update Adobe_variablesTable
+set value = replace(value, '/Volumes/totes_not_virus','H:\\')
+where name in( AgLibrary_volumeInfo);
+
+Update Adobe_variablesTable
+set value = replace(value, 'totes_not_virus','H:\\')
+where name in( AgLibrary_volumeInfo);
+
+This *should* result in a lightroom catalog that you can now open in windows provided you put it at:
+Select value from Adobe_variablesTable where name Adobe_lastScannedCatalogPath;
+
+Which is probably your external drive. 
+
+BEFORE YOU DO THIS>>>>  Backup this newly modified Catalog just in case. That way you can start from this savepoint if something goes wrong. 
+
+
+After your newly modified catalog is in your external drive where the last sql command said.. you can go ahead and start lightroom on windows (or osx if you went the other way) and lightroom will be up and running!! On a completely different OS and in a way that Adobe probably doesn't want you to do. Because they don't want to field tech support on people mucking around in their SQLite DBs aka lightroom catalog. Converting from Mac to Windows file system for Adobe Lightroom. 
+
+So Lightroom is a pretty nifty tool but when you want to switch operating systems it falls a bit short. 
+
+Officially I think it says you need to export collections from one OS then reimport them in another OS or something like that but.... There's a much much easier way to do switch OS's. By making a few database entry changes you can point the Mac OSX folder location to a windows one and avoid a bunch of work, error and time. 
+
+So underneath lightroom is a database and that database is SQLite which makes sense since lightroom is multi-operating system and so is SQLite. SQLite is a self contained database in a single file.
+
+
+A good tool for working with SQLite db's is DbBrowser available here: https://sqlitebrowser.org
+
+This tool is available for windows, mac and linux.
+
+Here is more info on the SQL commands that SQLite supports:
+https://www.sqlite.org/lang.html
+
+
+*********ONLY CHANGE YOUR CATALOG AFTER YOU HAVE MADE A BACKUP***************
+These files have an extension of .lrcat
+
+Repeat after me, "I solomley swear to only change a lightroom catalog that I have made a backup for"
+
+
+Tables with data to be changed:
+
+
+Adobe_variablesTable Table 
+--Adobe_lastScannedCatalogPath
+--AgLibrary_volumeInfo
+--AgLibrary_expandedFolders
+--AgImportDialog_importDestinationFolderPath
+--AgImportFromCatalog_destRoot
+--AgImportFromCatalog_missing_copyToPath
+
+AgLibraryRootFolder Table
+--absolutePath
+
+Lets start with AgLibraryRootFolder table. Data in the absolutePath field looks like this
+***** MAC OSX format:
+/Volumes/totes_not_virus/photos/literoll/
+
+***** Windows Format:
+H:/photos/literoll/ 
+
+In my case I moved the photos from an external drive hooked up to a mac to windows. (speed of windows & graphics card + memory).
+
+Each of the entries for absolutePath in table AgLibraryRootFolder needs to be updated to the new location. 
+
+I assigned the drive H: on my main machine and then ran a SQL command like this:
+Update AgLibraryRootFolder
+set absolutePath = replace(absolutePath, '/Volumes/totes_not_virus','H:');
+
+That makes it so when lightroom loads this database up it now knows where to find what it expects.  Even though you are now on a completely different operating system.
+
+
+Now you have to repeat this process with the Adobe_variablesTable Table. 
+The fields you want to change are:
+--Adobe_lastScannedCatalogPath
+
+--AgLibrary_volumeInfo (we'll save this one for last).
+
+--AgLibrary_expandedFolders
+--AgImportDialog_importDestinationFolderPath
+--AgImportFromCatalog_destRoot
+--AgImportFromCatalog_missing_copyToPath
+
+The big difference with this table is that it DOES care about windows vs osx slashes.  \ versus /. 
+
+Each of the commands will look something like this: 
+Update Adobe_variablesTable
+set value = replace(value, '/Volumes/totes_not_virus','H:')
+where name in( 'Adobe_lastScannedCatalogPath', 'AgLibrary_expandedFolders','AgImportDialog_importDestinationFolderPath', 'AgImportFromCatalog_destRoot', 'AgImportFromCatalog_missing_copyToPath' );
+
+Now update the forward slashes to back slashes..
+Update Adobe_variablesTable
+set value = replace(value, '/','\')
+where name in( 'Adobe_lastScannedCatalogPath', 'AgLibrary_expandedFolders','AgImportDialog_importDestinationFolderPath', 'AgImportFromCatalog_destRoot', 'AgImportFromCatalog_missing_copyToPath' );
+
+
+Now we are just left with one field we need to update before opening it in windows:
+AgLibrary_volumeInfo
+
+This is a bit trickier since it's format is a bit different.
+Valid OSX:
+volumeInfo = {
+	["/Volumes/totes_not_virus"] = {
+		expanded = true,
+		freeSpace = 63789785088,
+		name = "totes_not_virus",
+		offline = false,
+		size = 2000397881344,
+	},
+}
+
+Valid Windows:
+volumeInfo = {
+	["H:\\"] = {
+		freeSpace = 64858681344,
+		name = "PotatoOle (H:)",
+		offline = false,
+		size = 4000750497792,
+	},
+}
+
+Update Adobe_variablesTable
+set value = replace(value, '/Volumes/totes_not_virus','H:\\')
+where name in( 'AgLibrary_volumeInfo');
+
+Update Adobe_variablesTable
+set value = replace(value, 'totes_not_virus','H:\\')
+where name in( 'AgLibrary_volumeInfo');
+
+This *should* result in a lightroom catalog that you can now open in windows provided you put it at:
+Select value from Adobe_variablesTable where name Adobe_lastScannedCatalogPath;
+
+Which is probably your external drive. 
+
+BEFORE YOU DO THIS>>>>  Backup this newly modified Catalog just in case. That way you can start from this savepoint if something goes wrong. 
+
+
+After your newly modified catalog is in your external drive where the last sql command said.. you can go ahead and start lightroom on windows (or osx if you went the other way) and lightroom will be up and running!! On a completely different OS and in a way that Adobe probably doesn't want you to do. Because they don't want to field tech support on people mucking around in their SQLite DBs aka lightroom catalog. 
+
